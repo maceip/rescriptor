@@ -3,13 +3,14 @@ package com.wasmo.wasm.endive
 import kotlin.test.Test
 import kotlin.test.assertFailsWith
 import kotlinx.serialization.json.JsonNull
+import run.endive.wasm.Parser
 
 class EndiveRuntimeLimitsTest {
   @Test
   fun rejectsModuleWhoseInitialMemoryExceedsBudget() {
     assertFailsWith<EndiveMemoryLimitExceededException> {
       EndiveRuntime(
-        wasm = memoryModule(initialPages = 2),
+        module = Parser.parse(memoryModule(initialPages = 2)),
         capabilityHost = EndiveCapabilityHost { JsonNull },
         randomBytes = ::zeroBytes,
         limits = EndiveLimits(maxMemoryPages = 1),
@@ -20,7 +21,7 @@ class EndiveRuntimeLimitsTest {
   @Test
   fun interruptsGuestAtInstructionBudget() {
     val runtime = EndiveRuntime(
-      wasm = infiniteLoopModule(),
+      module = Parser.parse(infiniteLoopModule()),
       capabilityHost = EndiveCapabilityHost { JsonNull },
       randomBytes = ::zeroBytes,
       limits = EndiveLimits(maxInstructions = 100, timeoutMillis = 1_000),
@@ -37,7 +38,7 @@ class EndiveRuntimeLimitsTest {
   @Test
   fun interruptsGuestAtWallClockBudget() {
     val runtime = EndiveRuntime(
-      wasm = infiniteLoopModule(),
+      module = Parser.parse(infiniteLoopModule()),
       capabilityHost = EndiveCapabilityHost { JsonNull },
       randomBytes = ::zeroBytes,
       limits = EndiveLimits(maxInstructions = Long.MAX_VALUE, timeoutMillis = 20),

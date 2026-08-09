@@ -31,6 +31,7 @@ import wasmo.jobs.JobHandler
 @SingleIn(OsScope::class)
 class EndiveAppLoader(
   private val legacyJvmLoader: JvmAppLoader,
+  private val moduleCache: EndiveModuleCache,
 ) : AppLoader {
   override suspend fun load(
     platform: Platform,
@@ -38,15 +39,22 @@ class EndiveAppLoader(
     wasm: ByteString?,
   ): WasmoApp? {
     if (wasm == null) return legacyJvmLoader.load(platform, appSlug, wasm = null)
+    val randomSource = JournaledRandomSource(platform)
+    val capabilityHost = PlatformCapabilityHost(platform, randomSource)
+    val runtime = try {
+      EndiveRuntime(
+        module = moduleCache.get(wasm),
+        capabilityHost = capabilityHost,
+        randomBytes = randomSource::bytes,
+      )
+    } catch (failure: Throwable) {
+      capabilityHost.close()
+      throw failure
+    }
     return EndiveWasmoApp(
       appSlug = appSlug,
-      runtime = JournaledRandomSource(platform).let { randomSource ->
-        EndiveRuntime(
-          wasm = wasm.toByteArray(),
-          capabilityHost = PlatformCapabilityHost(platform, randomSource),
-          randomBytes = randomSource::bytes,
-        )
-      },
+      runtime = runtime,
+      capabilityHost = capabilityHost,
     )
   }
 }
@@ -54,6 +62,7 @@ class EndiveAppLoader(
 class EndiveWasmoApp internal constructor(
   private val appSlug: AppSlug,
   private val runtime: EndiveRuntime,
+  private val capabilityHost: PlatformCapabilityHost,
 ) : WasmoApp(), AutoCloseable {
   override val httpService: HttpService = object : HttpService {
     override suspend fun execute(request: HttpRequest): HttpResponse {
@@ -94,8 +103,13 @@ class EndiveWasmoApp internal constructor(
       null
     }
 
+  /** The runtime is fenced before its SQL handles close, so a timed-out guest cannot race them. */
   override fun close() {
-    runtime.close()
+    try {
+      runtime.close()
+    } finally {
+      capabilityHost.close()
+    }
   }
 
   override fun toString(): String = "EndiveWasmoApp($appSlug)"

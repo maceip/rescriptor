@@ -7,23 +7,22 @@ import com.wasmo.framework.Response
 import com.wasmo.framework.ResponseBody
 import com.wasmo.identifiers.ForInstalledApp
 import com.wasmo.identifiers.InstalledAppScope
+import com.wasmo.packaging.AppManifest
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import kotlin.time.Clock
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import wasmo.access.Caller
 import wasmo.access.ComputerAccess
 import wasmo.http.Header as PlatformHeader
 import wasmo.http.HttpRequest
 import wasmo.http.HttpResponse
+import wasmo.mediation.CapabilityInvocationReader
 import wasmo.mediation.CapabilityInvocationRecorder
 import wasmo.mediation.CapabilityInvocationStore
 import wasmo.mediation.InvocationKind
+import wasmo.mediation.InvocationReplayer
 import wasmo.mediation.MediatedPlatform
 import wasmo.objectstore.GetObjectRequest
 import wasmo.objectstore.ObjectStore
@@ -39,15 +38,35 @@ class RealInstalledAppHttpService(
   private val contentTypeDatabase: ContentTypeDatabase,
   @ForInstalledApp private val objectStore: ObjectStore,
   invocationStore: CapabilityInvocationStore,
+  invocationReader: CapabilityInvocationReader,
   clock: Clock,
 ) : InstalledAppHttpService {
   private val invocationRecorder = CapabilityInvocationRecorder(invocationStore, clock)
+
+  private val invocationHttpService = InvocationHttpService(
+    reader = invocationReader,
+    replayer = InvocationReplayer(invocationReader),
+    appSlug = installedAppService.slug.value,
+    executorFactory = { kind ->
+      when (kind) {
+        InvocationKind.Http -> httpInvocationExecutor(installedAppService)
+        InvocationKind.Job -> jobInvocationExecutor(installedAppService)
+      }
+    },
+  )
 
   override suspend fun execute(
     caller: Caller,
     request: Request,
   ): Response<ResponseBody> {
     val encodedUrlPath = request.url.encodedPath
+
+    // The OS answers its own reserved paths before the app sees anything, so an app can neither
+    // serve nor observe requests for its own audit record.
+    if (encodedUrlPath.startsWith(InvocationHttpService.ReservedPathPrefix)) {
+      return invocationHttpService.execute(caller, request, encodedUrlPath)
+    }
+
     val urlPath = when {
       encodedUrlPath.endsWith("/") -> "${encodedUrlPath}index.html"
       else -> encodedUrlPath
@@ -113,14 +132,15 @@ class RealInstalledAppHttpService(
     request: Request,
   ): Response<ResponseBody>? {
     val applicationRequest = request.toApplicationHttpRequest()
-    val appVersion = installedAppService.appManifestLoader.load().version
+    val manifest: AppManifest = installedAppService.appManifestLoader.load()
     val httpResponse = invocationRecorder.record(
       kind = InvocationKind.Http,
       appSlug = installedAppService.slug.value,
-      appVersion = appVersion,
+      appVersion = manifest.version,
       caller = caller,
-      input = applicationRequest.toInvocationJson(),
-      encodeOutput = { it?.toInvocationJson() ?: JsonNull },
+      input = InvocationPayloads.encode(applicationRequest),
+      encodeOutput = { it?.let(InvocationPayloads::encode) ?: JsonNull },
+      policy = manifest.capabilityPolicy(),
     ) { session ->
       val app = installedAppService.app(
         MediatedPlatform(installedAppService.platform, session),
@@ -148,30 +168,4 @@ class RealInstalledAppHttpService(
     contentType = this.contentType?.toMediaTypeOrNull(),
     body = ResponseBody { sink -> sink.write(body) },
   )
-
-  private fun HttpRequest.toInvocationJson(): JsonObject = JsonObject(
-    linkedMapOf(
-      "bodyBase64" to (body?.base64()?.let(::JsonPrimitive) ?: JsonNull),
-      "headers" to headers.toInvocationJson(),
-      "method" to JsonPrimitive(method),
-      "url" to JsonPrimitive(url),
-    ),
-  )
-
-  private fun HttpResponse.toInvocationJson(): JsonElement = JsonObject(
-    linkedMapOf(
-      "bodyBase64" to JsonPrimitive(body.base64()),
-      "code" to JsonPrimitive(code),
-      "headers" to headers.toInvocationJson(),
-    ),
-  )
-
-  private fun List<PlatformHeader>.toInvocationJson(): JsonArray = JsonArray(map { header ->
-    JsonObject(
-      linkedMapOf(
-        "name" to JsonPrimitive(header.name),
-        "value" to JsonPrimitive(header.value),
-      ),
-    )
-  })
 }

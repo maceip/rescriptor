@@ -20,8 +20,6 @@ import wasmo.app.WasmoApp
 import wasmo.http.HttpRequest
 import wasmo.http.HttpResponse
 import wasmo.http.HttpService
-import wasmo.mediation.CapabilityInvocation
-import wasmo.mediation.CapabilityInvocationStore
 import wasmo.mediation.MediatedPlatform
 import wasmo.objectstore.FakeObjectStore
 import wasmo.sql.FakeSqlService
@@ -30,7 +28,8 @@ class RealInstalledAppHttpServiceMediationTest {
   @Test
   fun authenticatedCallerOwnsFreshPersistedHttpSession() = runTest {
     val platform = FakePlatform(FakeSqlService("http_mediation_test"))
-    val saved = mutableListOf<CapabilityInvocation>()
+    val invocations = FakeCapabilityInvocationStore()
+    val saved = invocations.saved
     var loadedPlatform: Platform? = null
     val installedAppService = object : InstalledAppService {
       override val slug = AppSlug("notes")
@@ -69,7 +68,8 @@ class RealInstalledAppHttpServiceMediationTest {
         override fun get(fileName: String) = null
       },
       objectStore = FakeObjectStore(),
-      invocationStore = CapabilityInvocationStore(saved::add),
+      invocationStore = invocations,
+      invocationReader = invocations,
       clock = platform.clock,
     )
     val caller = Caller(

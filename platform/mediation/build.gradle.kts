@@ -11,6 +11,7 @@ kotlin {
   sourceSets {
     val jvmMain by getting {
       dependencies {
+        api(projects.identifiers)
         implementation(libs.kotlinx.coroutines.core)
         implementation(libs.kotlinx.serialization.json)
         implementation(libs.okio)
@@ -20,7 +21,6 @@ kotlin {
     val jvmTest by getting {
       dependencies {
         implementation(libs.kotlinx.coroutines.test)
-        implementation(projects.identifiers)
         implementation(projects.os.server.wasm.api)
         implementation(projects.os.server.wasm.jvm)
       }

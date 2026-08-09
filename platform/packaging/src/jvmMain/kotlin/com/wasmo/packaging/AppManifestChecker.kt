@@ -1,5 +1,6 @@
 package com.wasmo.packaging
 
+import com.wasmo.identifiers.Capability
 import com.wasmo.support.issues.IssueCollector
 import com.wasmo.support.issues.issueCheck
 
@@ -49,10 +50,57 @@ class AppManifestChecker(
       }
     }
 
+    val declaredNames = mutableSetOf<String>()
+    for ((index, capability) in manifest.capability.withIndex()) {
+      context(issueCollector.href("capability[$index]")) {
+        check(capability, declaredNames)
+      }
+    }
+
     val launcher = manifest.launcher
     if (launcher != null) {
       context(issueCollector.href("launcher")) {
         check(launcher)
+      }
+    }
+  }
+
+  context(issueCollector: IssueCollector)
+  private fun check(
+    declaration: CapabilityDeclaration,
+    declaredNames: MutableSet<String>,
+  ) {
+    val capability = declaration.capability
+
+    context(issueCollector.href("name")) {
+      issueCheck(capability != null) {
+        """
+        |unknown capability '${declaration.name}'
+        |expected one of ${Capability.ids}
+        """.trimMargin()
+      }
+
+      issueCheck(declaredNames.add(declaration.name)) {
+        "capability '${declaration.name}' is declared more than once"
+      }
+    }
+
+    if (capability == null) return
+
+    if (declaration.allow.isNotEmpty() && !capability.scope.isScopable) {
+      context(issueCollector.href("allow")) {
+        issueCheck(false) {
+          "the '${capability.id}' capability cannot be narrowed by an allow list"
+        }
+      }
+      return
+    }
+
+    for ((index, pattern) in declaration.allow.withIndex()) {
+      context(issueCollector.href("allow[$index]")) {
+        issueCheck(pattern.isNotBlank()) {
+          "expected a ${capability.scope.label} pattern"
+        }
       }
     }
   }

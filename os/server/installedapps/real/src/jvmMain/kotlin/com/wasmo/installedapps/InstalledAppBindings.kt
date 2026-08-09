@@ -13,6 +13,7 @@ import dev.zacsweers.metro.ElementsIntoSet
 import dev.zacsweers.metro.IntoSet
 import dev.zacsweers.metro.Provides
 import dev.zacsweers.metro.SingleIn
+import wasmo.mediation.CapabilityInvocationReader
 import wasmo.mediation.CapabilityInvocationStore
 
 @BindingContainer
@@ -24,6 +25,11 @@ abstract class InstalledAppBindings {
   abstract fun bindCapabilityInvocationStore(
     real: SqlCapabilityInvocationStore,
   ): CapabilityInvocationStore
+
+  @Binds
+  abstract fun bindCapabilityInvocationReader(
+    real: SqlCapabilityInvocationStore,
+  ): CapabilityInvocationReader
 
   companion object {
     private val ApplicationJobName = JobName<ApplicationJob, Unit>("ApplicationJob")

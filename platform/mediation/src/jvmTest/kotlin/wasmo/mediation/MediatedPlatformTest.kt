@@ -160,12 +160,17 @@ class MediatedPlatformTest {
   }
 
   @Test
-  fun deniedCapabilityIsAuditedBeforeDelegation() = runTest {
+  fun deniedCapabilityIsAuditedAndJournaledBeforeDelegation() = runTest {
     val live = TestPlatform()
     val session = CapabilitySession.recording(
       id = "session-denied",
       caller = Caller,
-      policy = CapabilityPolicy { it != "http.fetch" },
+      policy = CapabilityPolicy {
+        when (it.id) {
+          "http.fetch" -> CapabilityDecision.Deny("not declared")
+          else -> CapabilityDecision.Allow
+        }
+      },
       audit = AuditChain { 99L },
     )
 
@@ -175,9 +180,14 @@ class MediatedPlatformTest {
 
     assertThat(failure.capability).isEqualTo("http.fetch")
     assertThat(live.httpCalls).isEqualTo(0)
-    assertThat(session.journal.snapshot().isEmpty()).isTrue()
     assertThat(session.audit.snapshot().map { it.kind }).containsExactly("cap.denied")
     assertThat(session.audit.verify()).isInstanceOf(AuditVerification.Valid::class)
+
+    // The denial is journaled like any other failed call, so a replay reproduces it without
+    // needing the policy that produced it, which may have changed by then.
+    assertThat(session.journal.snapshot().map { it.failure?.type }).containsExactly(
+      CapabilityDeniedException::class.qualifiedName,
+    )
   }
 
   @Test

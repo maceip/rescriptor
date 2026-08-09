@@ -37,6 +37,7 @@ import wasmo.objectstore.ListObjectsRequest
 import wasmo.objectstore.ListObjectsResponse
 import wasmo.objectstore.PutObjectRequest
 import wasmo.sql.SqlBinder
+import wasmo.sql.SqlDatabase
 import wasmo.sql.SqlRow
 
 /** Entropy is journaled when this execution is running on a [MediatedPlatform]. */
@@ -60,12 +61,38 @@ internal class JournaledRandomSource(
   }
 }
 
-/** JSON dispatch for the complete Wasmo [Platform] capability surface. */
+/**
+ * JSON dispatch for the complete Wasmo [Platform] capability surface.
+ *
+ * One host serves one invocation, and owns any SQL handles that invocation opened. Closing it
+ * closes them.
+ */
 internal class PlatformCapabilityHost(
   private val platform: Platform,
   private val randomSource: JournaledRandomSource = JournaledRandomSource(platform),
-) : EndiveCapabilityHost {
+  /**
+   * The ceiling on a single capability result, in the encoding the guest will receive.
+   *
+   * The runtime also checks this after the fact, but by then the host has already built the value.
+   * Checking here, against sizes that are known before anything is encoded, is what stops a guest
+   * from exhausting the OS's heap with one oversized read.
+   */
+  private val maxResultBytes: Int = EndiveLimits().maxCapabilityResultBytes,
+) : EndiveCapabilityHost, AutoCloseable {
+  /**
+   * SQL handles held open for the life of this invocation.
+   *
+   * Opening a database and a connection per statement made an app's tenth query cost the same as
+   * its first: a provisioning lookup and a fresh connection every time, plus a journal entry for
+   * each. Holding them per invocation is both faster and a truer record — the app opened the
+   * database once, so the journal says so once.
+   */
+  private val databases = linkedMapOf<String, SqlDatabase>()
+  private val connections = linkedMapOf<String, wasmo.sql.SqlConnection>()
+  private var closed = false
+
   override fun call(request: JsonElement): JsonElement = runBlocking {
+    check(!closed) { "capability host is closed" }
     val envelope = request.jsonObject
     val capability = envelope.required("cap").jsonPrimitive.content
     val method = envelope.required("method").jsonPrimitive.content
@@ -75,13 +102,15 @@ internal class PlatformCapabilityHost(
       "random.bytes" -> JsonPrimitive(
         randomSource.bytes(body.objectValue("length").jsonPrimitive.int).toByteString().base64(),
       )
-      "http.fetch" -> platform.httpService.execute(body.toHttpRequest()).toJson()
+      "http.fetch" -> platform.httpService.execute(body.toHttpRequest())
+        .also { requireBinarySize("HTTP response body", it.body.size) }
+        .toJson()
       "objectStore.put" -> platform.objectStore.put(body.toPutObjectRequest()).let {
         jsonObjectOf("etag" to JsonPrimitive(it.etag))
       }
       "objectStore.get" -> platform.objectStore.get(
         GetObjectRequest(body.objectValue("key").jsonPrimitive.content),
-      ).toJson()
+      ).also { requireBinarySize("object", it.value?.size ?: 0) }.toJson()
       "objectStore.delete" -> {
         platform.objectStore.delete(
           DeleteObjectRequest(body.objectValue("key").jsonPrimitive.content),
@@ -94,12 +123,13 @@ internal class PlatformCapabilityHost(
           httpRequest = body.objectValue("httpRequest").toHttpRequest(),
           objectStoreKey = body.objectValue("objectStoreKey").jsonPrimitive.content,
         ),
-      ).let { response ->
-        jsonObjectOf(
-          "etag" to response.etag.toJson(),
-          "httpResponse" to response.httpResponse.toJson(),
-        )
-      }
+      ).also { requireBinarySize("download response body", it.httpResponse.body.size) }
+        .let { response ->
+          jsonObjectOf(
+            "etag" to response.etag.toJson(),
+            "httpResponse" to response.httpResponse.toJson(),
+          )
+        }
       "jobs.enqueue" -> {
         val queue = platform.jobQueueFactory.get(body.stringOrDefault("queue"))
         queue.enqueue(
@@ -121,7 +151,7 @@ internal class PlatformCapabilityHost(
     }
   }
 
-  private suspend fun sqlExec(request: JsonElement): JsonElement = withSqlConnection(request) {
+  private suspend fun sqlExec(request: JsonElement): JsonElement = with(connection(request)) {
     JsonPrimitive(
       execute(request.objectValue("sql").jsonPrimitive.content) {
         applyBindings(request.arrayOrEmpty("bindings"))
@@ -129,17 +159,30 @@ internal class PlatformCapabilityHost(
     )
   }
 
-  private suspend fun sqlQuery(request: JsonElement): JsonElement = withSqlConnection(request) {
+  /**
+   * Reads a result set under a running byte budget.
+   *
+   * A row cap alone bounds nothing useful, because a row can be a megabyte. Measuring each row as
+   * it is encoded and stopping at the ceiling means an oversized query fails after one row instead
+   * of after ten thousand, and the host never holds more than the guest was ever allowed to see.
+   */
+  private suspend fun sqlQuery(request: JsonElement): JsonElement = with(connection(request)) {
     val columns = request.objectValue("columns").jsonArray.map { it.jsonPrimitive.content }
     val iterator = executeQuery(request.objectValue("sql").jsonPrimitive.content) {
       applyBindings(request.arrayOrEmpty("bindings"))
     }
     try {
       val rows = mutableListOf<JsonElement>()
+      var bytes = 0L
       while (true) {
         val row = iterator.next() ?: break
         require(rows.size < MaxSqlRows) { "Endive SQL result exceeds $MaxSqlRows rows" }
-        rows.add(JsonArray(columns.mapIndexed { index, type -> row.readColumn(index, type) }))
+        val encoded = JsonArray(columns.mapIndexed { index, type -> row.readColumn(index, type) })
+        bytes += encoded.toString().length.toLong()
+        require(bytes <= maxResultBytes) {
+          "Endive SQL result exceeds $maxResultBytes bytes at row ${rows.size}"
+        }
+        rows.add(encoded)
       }
       jsonObjectOf("rows" to JsonArray(rows))
     } finally {
@@ -147,21 +190,29 @@ internal class PlatformCapabilityHost(
     }
   }
 
-  private suspend fun <T> withSqlConnection(
-    request: JsonElement,
-    block: suspend wasmo.sql.SqlConnection.() -> T,
-  ): T {
-    val database = platform.sqlService.getOrCreate(request.stringOrDefault("database"))
-    try {
-      val connection = database.newConnection()
-      try {
-        return connection.block()
-      } finally {
-        connection.close()
-      }
-    } finally {
-      database.close()
+  /** Returns this invocation's connection to the named database, opening it the first time. */
+  private suspend fun connection(request: JsonElement): wasmo.sql.SqlConnection {
+    val name = request.stringOrDefault("database")
+    connections[name]?.let { return it }
+    val database = databases.getOrPut(name) { platform.sqlService.getOrCreate(name) }
+    return database.newConnection().also { connections[name] = it }
+  }
+
+  private fun requireBinarySize(kind: String, size: Int) {
+    // Base64 costs four bytes for every three, and the guest is charged for the encoded form.
+    val encoded = (size.toLong() + 2) / 3 * 4
+    require(encoded <= maxResultBytes) {
+      "Endive $kind is $size bytes, which exceeds the $maxResultBytes byte capability result limit"
     }
+  }
+
+  override fun close() {
+    if (closed) return
+    closed = true
+    for (connection in connections.values) connection.close()
+    for (database in databases.values) database.close()
+    connections.clear()
+    databases.clear()
   }
 
   private fun SqlBinder.applyBindings(bindings: JsonArray) {

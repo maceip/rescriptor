@@ -48,7 +48,7 @@ class EndiveAppLoaderTest {
       legacyCreates += 1
       object : WasmoApp() {}
     }
-    val loader = EndiveAppLoader(JvmAppLoader(mapOf(AppSlug to legacyFactory)))
+    val loader = EndiveAppLoader(JvmAppLoader(mapOf(AppSlug to legacyFactory)), EndiveModuleCache())
 
     assertFails {
       loader.load(ClockOnlyPlatform(), AppSlug, "not a wasm module".encodeUtf8())
@@ -69,7 +69,7 @@ class EndiveAppLoaderTest {
 
     val wasm = Files.readAllBytes(Path.of(assertNotNull(System.getProperty("wasmo.endive.probe"))))
       .toByteString()
-    val loader = EndiveAppLoader(JvmAppLoader(emptyMap()))
+    val loader = EndiveAppLoader(JvmAppLoader(emptyMap()), EndiveModuleCache())
     val live = ClockOnlyPlatform()
     val recording = CapabilitySession.recording("endive-record", Caller)
     val recordedApp = assertNotNull(

@@ -6,8 +6,6 @@ import kotlin.time.Instant
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonNull
-import kotlinx.serialization.json.JsonPrimitive
 import wasmo.access.Caller
 
 enum class InvocationKind {
@@ -65,6 +63,7 @@ class CapabilityInvocationRecorder(
     caller: Caller,
     input: JsonElement,
     encodeOutput: (T) -> JsonElement,
+    policy: CapabilityPolicy = CapabilityPolicy.AllowAll,
     block: suspend (CapabilitySession) -> T,
   ): T {
     val id = idFactory()
@@ -74,12 +73,14 @@ class CapabilityInvocationRecorder(
     val session = CapabilitySession.recording(
       id = id,
       caller = caller,
+      policy = policy,
       audit = audit,
     )
+    val detail = "$kind:$appSlug:$appVersion"
     audit.append(
       kind = "invocation.start",
       caller = callerJson,
-      detail = "$kind:$appSlug:$appVersion:${stableStringify(input)}",
+      detail = "$detail:${stableStringify(input)}",
       resultHash = AuditChain.resultHash(id),
     )
 
@@ -91,15 +92,8 @@ class CapabilityInvocationRecorder(
       audit.append(
         kind = "invocation.failure",
         caller = callerJson,
-        detail = "$kind:$appSlug:$appVersion",
-        resultHash = AuditChain.resultHash(
-          stableStringify(
-            jsonObjectOf(
-              "message" to (failureRecord.message?.let(::JsonPrimitive) ?: JsonNull),
-              "type" to JsonPrimitive(failureRecord.type),
-            ),
-          ),
-        ),
+        detail = detail,
+        resultHash = AuditChain.resultHash(stableStringify(failure.toFailureJson())),
       )
       val invocation = CapabilityInvocation(
         id = id,
@@ -126,7 +120,7 @@ class CapabilityInvocationRecorder(
     audit.append(
       kind = "invocation.success",
       caller = callerJson,
-      detail = "$kind:$appSlug:$appVersion",
+      detail = detail,
       resultHash = AuditChain.resultHash(stableStringify(output)),
     )
     val invocation = CapabilityInvocation(
@@ -149,6 +143,6 @@ class CapabilityInvocationRecorder(
 }
 
 private fun Throwable.toInvocationFailure() = InvocationFailure(
-  type = this::class.qualifiedName ?: this::class.simpleName ?: "Throwable",
+  type = failureType(),
   message = message,
 )

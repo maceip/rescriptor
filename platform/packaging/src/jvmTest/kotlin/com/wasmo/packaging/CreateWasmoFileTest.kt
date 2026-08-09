@@ -16,6 +16,44 @@ import okio.openZip
 class CreateWasmoFileTest {
   private val fileSystem = FakeFileSystem()
 
+  /**
+   * Packaging resolves external resources away, but never a capability declaration: the OS reads it
+   * out of the packaged manifest to decide what the app is allowed to do.
+   */
+  @Test
+  fun declaredCapabilitiesSurvivePackaging() {
+    val manifest = AppManifest(
+      target = "https://wasmo.com/sdk/1",
+      version = 35,
+      capability = listOf(
+        CapabilityDeclaration(name = "clock"),
+        CapabilityDeclaration(name = "http", allow = listOf("https://api.weather.test/**")),
+      ),
+    )
+
+    fileSystem.createDirectories("/app/www".toPath())
+    fileSystem.write("/app/www/index.html".toPath()) { writeUtf8("I am an HTML page") }
+    fileSystem.write("/app/wasmo-manifest.toml".toPath()) {
+      writeUtf8(WasmoToml.encodeToString(AppManifest.serializer(), manifest))
+    }
+
+    val issues = IssueCollector.collect {
+      CreateWasmoFile(
+        fileSystem = fileSystem,
+        inputDirectory = "/app".toPath(),
+        outputFile = "/app.wasmo".toPath(),
+      ).execute()
+    }
+    assertThat(issues).isEmpty()
+
+    val output = fileSystem.openZip("/app.wasmo".toPath())
+    val packaged = WasmoToml.decodeFromString(
+      AppManifest.serializer(),
+      output.read("/wasmo-manifest.toml".toPath()) { readUtf8() },
+    )
+    assertThat(packaged.capability).isEqualTo(manifest.capability)
+  }
+
   @Test
   fun happyPath() {
     val manifest = AppManifest(
@@ -74,6 +112,7 @@ class CreateWasmoFileTest {
         |target = "https://wasmo.com/sdk/1"
         |version = 35
         |external_resource = [  ]
+        |capability = [  ]
         """.trimMargin(),
       )
     assertThat(output.read("/www/index.html".toPath()) { readUtf8() })

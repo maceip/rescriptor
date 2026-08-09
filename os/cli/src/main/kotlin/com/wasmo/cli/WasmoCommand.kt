@@ -11,5 +11,5 @@ class WasmoCommand : CliktCommand(
 }
 
 fun main(args: Array<String>) = WasmoCommand()
-  .subcommands(CreateWasmoFileCommand())
+  .subcommands(CreateWasmoFileCommand(), auditCommand())
   .main(args)

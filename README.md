@@ -112,6 +112,9 @@ Project layout
 | ` '- routes`            | Encode and decode Wasmo OS's URLs as values.                        |
 | ` '- server`            | The backend Kotlin server of Wasmo OS.                              |
 | `platform`              | APIs exposed by Wasmo OS to its apps.                               |
+| ` '- api`               | The capability surface an app is given.                             |
+| ` '- mediation`         | Records, replays, and audits every effect an app has.               |
+| ` '- packaging`         | Builds and validates `.wasmo` files.                                |
 | `submodules`            |                                                                     |
 | ` '- pico`              | The [Pico] CSS framework.                                           |
 | ` '- wasi`              | The [WebAssembly System Interface].                                 |

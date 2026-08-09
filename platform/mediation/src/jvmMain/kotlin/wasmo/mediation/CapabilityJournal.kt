@@ -171,6 +171,6 @@ data class JournalCall(
 )
 
 private fun Exception.toJournalFailure() = JournalFailure(
-  type = this::class.qualifiedName ?: this::class.simpleName ?: "Exception",
+  type = failureType(),
   message = message,
 )

@@ -38,7 +38,7 @@ class ApplicationJobHandler(
     }
 
     if (installedAppService == null) return
-    val appVersion = installedAppService.appManifestLoader.load().version
+    val manifest = installedAppService.appManifestLoader.load()
     val caller = Caller(
       userId = null,
       computerAccess = ComputerAccess.Owner,
@@ -49,19 +49,11 @@ class ApplicationJobHandler(
     invocationRecorder.record(
       kind = InvocationKind.Job,
       appSlug = installedAppService.slug.value,
-      appVersion = appVersion,
+      appVersion = manifest.version,
       caller = caller,
-      input = JsonObject(
-        linkedMapOf(
-          "dataBase64" to JsonPrimitive(job.data.base64()),
-          "executeAtMillis" to (
-            job.executeAt?.toEpochMilliseconds()?.let(::JsonPrimitive) ?: JsonNull
-            ),
-          "jobId" to JsonPrimitive(context.jobId.toString()),
-          "queue" to JsonPrimitive(job.queueName),
-        ),
-      ),
+      input = InvocationPayloads.encodeJob(job, jobId = context.jobId.toString()),
       encodeOutput = { JsonNull },
+      policy = manifest.capabilityPolicy(),
     ) { session ->
       val app = installedAppService.app(
         MediatedPlatform(installedAppService.platform, session),

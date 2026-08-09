@@ -1,0 +1,6 @@
+target = 'https://wasmo.com/sdk/1'
+version = 1
+
+[launcher]
+label = 'Smart Home'
+maskable_icon_path = '/assets/maskable-icon.svg'

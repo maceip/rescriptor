@@ -1,0 +1,36 @@
+package com.wasmo.journal.app
+
+import app.cash.burst.InterceptTest
+import com.wasmo.domtester.SnapshotTester
+import kotlin.test.Test
+import kotlinx.coroutines.test.runTest
+
+class EditEntryTest {
+  @InterceptTest
+  val snapshotTester = SnapshotTester(
+    stylesheetsUrls = listOf(
+      "https://fonts.googleapis.com/css2?family=Figtree:ital,wght@0,300..900;1,300..900&display=swap",
+      "/assets/Wasmo.css",
+    ),
+  )
+
+  @Test
+  fun happyPath() = runTest {
+    val sample = SampleEntries.WasmIsLikeJson
+    snapshotTester.snapshot {
+      EditEntry(
+        syncState = SyncState.Ready,
+        publishState = PublishStateViewModel(
+          publishNeeded = false,
+          publishRequested = false,
+        ),
+        title = sample.title,
+        slug = sample.slug,
+        body = sample.body,
+        visibility = sample.visibility,
+        uploads = mapOf(),
+        eventListener = {},
+      )
+    }
+  }
+}

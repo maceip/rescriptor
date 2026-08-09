@@ -1,0 +1,40 @@
+plugins {
+  alias(libs.plugins.kotlin.multiplatform)
+  alias(libs.plugins.burst)
+  alias(libs.plugins.metro)
+  id("wasmo-build")
+}
+
+wasmoBuild {
+  libraryJvm()
+}
+
+kotlin {
+  sourceSets {
+    val jvmMain by getting {
+      dependencies {
+        api(projects.os.api)
+        implementation(libs.commons.dbcp2)
+        implementation(libs.kotlinx.coroutines.core)
+        implementation(libs.okio)
+        implementation(libs.vertx.postgresql)
+        implementation(projects.identifiers)
+        implementation(projects.os.server.events.api)
+        implementation(projects.os.server.identifiers)
+        implementation(projects.os.server.db)
+        implementation(projects.os.server.sql.api)
+        implementation(projects.platform.api)
+        implementation(projects.support.closeTracker)
+        implementation(projects.wasmox.wasmoxSql)
+      }
+    }
+    val jvmTest by getting {
+      dependencies {
+        implementation(libs.kotlinx.coroutines.test)
+        implementation(libs.burst.coroutines)
+        implementation(projects.os.server.sql.testing)
+        implementation(projects.os.server.testing)
+      }
+    }
+  }
+}

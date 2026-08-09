@@ -1,0 +1,77 @@
+@file:OptIn(ExperimentalUuidApi::class)
+
+package com.wasmo.jobs.absurd
+
+import com.wasmo.events.EventListener
+import com.wasmo.identifiers.JobName
+import com.wasmo.identifiers.OsScope
+import com.wasmo.jobs.JobEnqueuedEvent
+import com.wasmo.jobs.JobRegistration
+import com.wasmo.jobs.OsJobQueue
+import com.wasmo.sql.OsSqlConnection
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.SingleIn
+import io.vertx.core.VertxException
+import java.util.concurrent.RejectedExecutionException
+import kotlin.uuid.ExperimentalUuidApi
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
+import wasmo.sql.SqlConnection
+import wasmox.sql.SqlTransaction
+
+/**
+ * Bridge Wasmo's opinionated job queue API to Absurd's slightly-differently-opinionated task queue
+ * API.
+ *
+ * The main difference is that Wasmo requires callers have a [SqlConnection] context to enqueue,
+ * whereas Absurd makes that optional.
+ */
+internal class AbsurdOsJobQueue<P : Any, R : Any> private constructor(
+  private val factory: Factory,
+  private val jobName: JobName<P, R>,
+) : OsJobQueue<P> {
+
+  context(sqlTransaction: SqlTransaction)
+  override suspend fun enqueue(job: P) {
+    factory.eventListener.onEvent(JobEnqueuedEvent)
+    factory.absurdService.absurd.spawn(
+      taskName = jobName.toAbsurd(),
+      params = job,
+      sqlClient = (sqlTransaction.sqlConnection as OsSqlConnection).sqlClient,
+    )
+
+    // TODO: this is only necessary for tests!
+    sqlTransaction.afterCommit {
+      factory.scope.launch {
+        try {
+          factory.absurdService.absurd.executeBatch("AbsurdOsJobQueue")
+        } catch (_: VertxException) {
+          // Pool closed?
+        } catch (_: RejectedExecutionException) {
+          // Pool closed?
+        }
+      }
+    }
+  }
+
+  context(sqlTransaction: SqlTransaction)
+  override suspend fun cancel(job: P) {
+    TODO()
+  }
+
+  @Inject
+  @SingleIn(OsScope::class)
+  class Factory(
+    internal val scope: CoroutineScope,
+    internal val absurdService: AbsurdService,
+    internal val eventListener: EventListener,
+  ) : OsJobQueue.Factory {
+    override fun <P : Any> create(jobName: JobName<P, *>) = AbsurdOsJobQueue(this, jobName)
+
+    override operator fun plus(registration: JobRegistration<*, *>) = Factory(
+      scope = scope,
+      absurdService = absurdService + registration,
+      eventListener = eventListener,
+    )
+  }
+}

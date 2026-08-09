@@ -1,0 +1,62 @@
+plugins {
+  alias(libs.plugins.kotlin.multiplatform)
+  alias(libs.plugins.metro)
+  id("wasmo-build")
+}
+
+wasmoBuild {
+  libraryJvm()
+}
+
+kotlin {
+  sourceSets {
+    val jvmMain by getting {
+      dependencies {
+        implementation(libs.kotlinx.coroutines.core)
+        implementation(libs.ktor.server.core)
+        implementation(libs.ktor.server.netty)
+        implementation(libs.okhttp)
+        implementation(libs.okio)
+        implementation(projects.apps.journal.wasmoApp)
+        implementation(projects.identifiers)
+        implementation(projects.os.api)
+        implementation(projects.os.catalog)
+        implementation(projects.os.framework)
+        implementation(projects.os.logging)
+        implementation(projects.os.routes)
+        implementation(projects.os.server.accounts.api)
+        implementation(projects.os.server.accounts.real)
+        implementation(projects.os.server.calls.api)
+        implementation(projects.os.server.calls.real)
+        implementation(projects.os.server.calls.wiring)
+        implementation(projects.os.server.computers.real)
+        implementation(projects.os.server.db)
+        implementation(projects.os.server.emails.real)
+        implementation(projects.os.server.events.api)
+        implementation(projects.os.server.events.logging)
+        implementation(projects.os.server.identifiers)
+        implementation(projects.os.server.installedapps.real)
+        implementation(projects.os.server.jobs.absurd)
+        implementation(projects.os.server.jobs.api)
+        implementation(projects.os.server.ktor.api)
+        implementation(projects.os.server.ktor.real)
+        implementation(projects.os.server.objectstore.api)
+        implementation(projects.os.server.objectstore.fs)
+        implementation(projects.os.server.objectstore.s3)
+        implementation(projects.os.server.okhttpclient)
+        implementation(projects.os.server.passkeys.real)
+        implementation(projects.os.server.permits.real)
+        implementation(projects.os.server.postgresqloperator.api)
+        implementation(projects.os.server.sendemail.postmark)
+        implementation(projects.os.server.sql.api)
+        implementation(projects.os.server.sql.real)
+        implementation(projects.os.server.wasm.api)
+        implementation(projects.os.server.wasm.endive)
+        implementation(projects.os.server.wasm.jvm)
+        implementation(projects.os.server.website.real)
+        implementation(projects.platform.api)
+        implementation(projects.wasmox.wasmoxSql)
+      }
+    }
+  }
+}

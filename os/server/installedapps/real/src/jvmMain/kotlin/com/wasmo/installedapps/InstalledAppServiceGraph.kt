@@ -1,0 +1,99 @@
+package com.wasmo.installedapps
+
+import com.wasmo.db.installedapps.DbInstalledApp
+import com.wasmo.downloader.RealDownloader
+import com.wasmo.identifiers.AppSlug
+import com.wasmo.identifiers.ComputerSlug
+import com.wasmo.identifiers.ForInstalledApp
+import com.wasmo.identifiers.ForOs
+import com.wasmo.identifiers.InstalledAppId
+import com.wasmo.identifiers.InstalledAppScope
+import com.wasmo.identifiers.WasmoFileAddress
+import dev.zacsweers.metro.Binds
+import dev.zacsweers.metro.GraphExtension
+import dev.zacsweers.metro.Provides
+import dev.zacsweers.metro.SingleIn
+import wasmo.app.Platform
+import wasmo.downloader.Downloader
+import wasmo.http.HttpService
+import wasmo.jobs.JobQueue
+import wasmo.objectstore.ObjectStore
+import wasmo.objectstore.ScopedObjectStore
+import wasmo.sql.SqlService
+
+@GraphExtension(
+  scope = InstalledAppScope::class,
+)
+interface InstalledAppServiceGraph {
+  val service: InstalledAppService
+
+  @Provides
+  @ForInstalledApp
+  @SingleIn(InstalledAppScope::class)
+  fun provideObjectStore(
+    computerSlug: ComputerSlug,
+    appSlug: AppSlug,
+    @ForOs objectStore: ObjectStore,
+  ): ObjectStore = ScopedObjectStore(
+    delegate = objectStore,
+    prefix = "$computerSlug/$appSlug/",
+  )
+
+  @Provides
+  @SingleIn(InstalledAppScope::class)
+  fun provideAppSlug(
+    installedApp: DbInstalledApp,
+  ): AppSlug = installedApp.slug
+
+  @Provides
+  @SingleIn(InstalledAppScope::class)
+  fun provideInstalledAppId(
+    installedApp: DbInstalledApp,
+  ): InstalledAppId = installedApp.id
+
+  @Provides
+  @SingleIn(InstalledAppScope::class)
+  fun provideWasmoFileAddress(
+    installedApp: DbInstalledApp,
+  ): WasmoFileAddress = installedApp.wasmoFileAddress
+
+  @Provides
+  @ForInstalledApp
+  fun provideDownloader(
+    @ForInstalledApp httpService: HttpService,
+    @ForInstalledApp objectStore: ObjectStore,
+  ): Downloader = RealDownloader(httpService, objectStore)
+
+  @Binds
+  fun bindInstalledAppService(real: RealInstalledAppService): InstalledAppService
+
+  @Binds
+  fun bindInstalledAppHttpService(real: RealInstalledAppHttpService): InstalledAppHttpService
+
+  @Binds
+  fun bindPlatform(real: RealPlatform): Platform
+
+  @Binds
+  @ForInstalledApp
+  fun bindHttpService(real: HttpService): HttpService
+
+  @Binds
+  @ForInstalledApp
+  fun bindJobQueueFactory(real: ApplicationJobQueue.Factory): JobQueue.Factory
+
+  @Binds
+  @ForInstalledApp
+  fun bindSqlService(real: SqlService): SqlService
+
+  @Binds
+  fun bindResourceLoaderFactory(real: RealResourceLoaderFactory): ResourceLoader.Factory
+
+  @GraphExtension.Factory
+  interface Factory {
+    fun create(
+      @Provides computerSlug: ComputerSlug,
+      @Provides installedApp: DbInstalledApp,
+      @Provides appManifestLoader: AppManifestLoader,
+    ): InstalledAppServiceGraph
+  }
+}

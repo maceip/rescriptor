@@ -1,0 +1,69 @@
+package com.wasmo.accounts.passkeys
+
+import com.wasmo.accounts.CallScope
+import com.wasmo.accounts.Client
+import com.wasmo.accounts.invite.InviteService
+import com.wasmo.api.AuthenticatePasskeyRequest
+import com.wasmo.api.AuthenticatePasskeyResponse
+import com.wasmo.calls.CallDataService
+import com.wasmo.db.passkeys.findPasskeyByPasskeyId
+import com.wasmo.framework.ArgumentUserException
+import com.wasmo.framework.Response
+import com.wasmo.framework.RpcAction
+import com.wasmo.framework.Url
+import com.wasmo.passkeys.PasskeyChecker
+import dev.zacsweers.metro.ClassKey
+import dev.zacsweers.metro.ContributesIntoMap
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.binding
+import wasmo.sql.SqlDatabase
+import wasmox.sql.transaction
+
+@Inject
+@ClassKey
+@ContributesIntoMap(CallScope::class, binding = binding<RpcAction<*, *>>())
+class AuthenticatePasskeyRpc(
+  private val client: Client,
+  private val passkeyChecker: PasskeyChecker,
+  private val passkeyLinker: PasskeyLinker,
+  private val callDataService: CallDataService,
+  private val wasmoDb: SqlDatabase,
+  private val inviteService: InviteService,
+) : RpcAction<AuthenticatePasskeyRequest, AuthenticatePasskeyResponse> {
+  suspend fun authenticate(
+    request: AuthenticatePasskeyRequest,
+  ): Response<AuthenticatePasskeyResponse> {
+    return wasmoDb.transaction {
+      val passkey = findPasskeyByPasskeyId(request.authentication.id)
+        ?: throw ArgumentUserException("no such passkey")
+
+      try {
+        passkeyChecker.authenticate(
+          authentication = request.authentication,
+          registrationRecord = passkey.registrationRecord,
+        )
+      } catch (_: Exception) {
+        // TODO: log the exception
+        throw ArgumentUserException("failed to authenticate passkey")
+      }
+
+      passkeyLinker.link(passkey)
+
+      val inviteCode = request.inviteCode
+      if (inviteCode != null) {
+        inviteService.claim(client, inviteCode)
+      }
+
+      Response(
+        body = AuthenticatePasskeyResponse(
+          account = callDataService.accountSnapshot(),
+        ),
+      )
+    }
+  }
+
+  override suspend operator fun invoke(
+    request: AuthenticatePasskeyRequest,
+    url: Url,
+  ) = authenticate(request)
+}

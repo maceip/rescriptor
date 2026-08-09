@@ -1,0 +1,71 @@
+package com.wasmo.identifiers
+
+import kotlinx.serialization.Serializable
+
+@Serializable
+@JvmInline
+value class AccountId(val id: Long)
+
+@Serializable
+@JvmInline
+value class ComputerAccessId(val id: Long)
+
+@Serializable
+@JvmInline
+value class SubscriptionPeriodId(val id: Long)
+
+@Serializable
+@JvmInline
+value class ComputerId(val id: Long)
+
+@Serializable
+@JvmInline
+value class ComputerSpecId(val id: Long)
+
+@Serializable
+@JvmInline
+value class CookieId(val id: Long)
+
+@Serializable
+@JvmInline
+value class InstalledAppId(val id: Long)
+
+@Serializable
+@JvmInline
+value class InstalledAppDatabaseId(val id: Long)
+
+@Serializable
+@JvmInline
+value class InstalledAppReleaseId(val id: Long)
+
+@Serializable
+@JvmInline
+value class InviteId(val id: Long)
+
+@Serializable
+@JvmInline
+value class LinkedEmailAddressId(val id: Long)
+
+@Serializable
+@JvmInline
+value class PasskeyId(val id: Long)
+
+@Serializable
+@JvmInline
+value class PermitId(val id: Long)
+
+@Serializable
+@JvmInline
+value class SchemaVersionId(val id: Long)
+
+@Serializable
+@JvmInline
+value class StripeCustomerId(val id: Long)
+
+@Serializable
+@JvmInline
+value class UserId(val id: Long)
+
+@Serializable
+@JvmInline
+value class UsernameId(val id: Long)

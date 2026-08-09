@@ -1,0 +1,29 @@
+package com.wasmo.computers
+
+import com.wasmo.api.ComputerSnapshot
+import com.wasmo.identifiers.AppSlug
+import com.wasmo.identifiers.ComputerId
+import com.wasmo.identifiers.ComputerSlug
+import com.wasmo.identifiers.WasmoFileAddress
+import okhttp3.HttpUrl
+import wasmox.sql.SqlTransaction
+
+interface ComputerService {
+  val id: ComputerId
+  val slug: ComputerSlug
+  val resourceInstallerFactory: ResourceInstaller.Factory
+  val url: HttpUrl
+
+  /** Install default apps. */
+  context(sqlTransaction: SqlTransaction)
+  suspend fun initialize()
+
+  context(sqlTransaction: SqlTransaction)
+  suspend fun enqueueInstall(
+    wasmoFileAddress: WasmoFileAddress,
+    slug: AppSlug,
+  )
+
+  suspend fun snapshot(): ComputerSnapshot
+}
+

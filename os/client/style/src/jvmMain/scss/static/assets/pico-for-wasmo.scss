@@ -1,0 +1,52 @@
+// Pico lightweight version
+@use "pico" with (
+  $enable-classes: true,
+  $modules: (
+    "components/modal": false,
+  ),
+  $theme-color: zinc,
+  $breakpoints: (
+    // Must match the `design_and_style.md` Breakpoints.
+    //
+    // Even though lg, xl, and xxl are the same, we declare all of them because that's how Pico's
+    // fallbacks are set up.
+
+    // Small (landscape phones)
+    // Font size: 17px
+    sm: (
+        breakpoint: 576px,
+        viewport: 508px,
+        root-font-size: 106.25%,
+      ),
+
+    // Medium (tablets)
+    // Font size: 18px
+    md: (
+        breakpoint: 768px,
+        viewport: 700px,
+        root-font-size: 112.5%,
+      ),
+
+    // Large
+    // Font size: 19px
+    lg: (
+        breakpoint: 1024px,
+        viewport: 948px,
+        root-font-size: 118.75%,
+      ),
+
+    // XL is the same as large.
+    xl: (
+        breakpoint: 1280px,
+        viewport: 948px,
+        root-font-size: 118.75%,
+      ),
+
+    // XXL is the same as large.
+    xxl: (
+        breakpoint: 1536px,
+        viewport: 948px,
+        root-font-size: 118.75%,
+      )
+  ),
+);

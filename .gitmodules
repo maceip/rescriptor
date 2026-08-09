@@ -1,0 +1,9 @@
+[submodule "submodules/pico"]
+	path = submodules/pico
+	url = https://github.com/picocss/pico.git
+[submodule "submodules/WASI"]
+	path = submodules/WASI
+	url = https://github.com/WebAssembly/WASI.git
+[submodule "third_party/endive"]
+	path = third_party/endive
+	url = https://github.com/bytecodealliance/endive.git

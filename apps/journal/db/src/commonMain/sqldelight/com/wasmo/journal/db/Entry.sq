@@ -1,0 +1,80 @@
+insertEntry:
+INSERT INTO Entry(
+  token,
+  version,
+  publish_needed_at,
+  visibility,
+  date,
+  slug,
+  title,
+  body
+)
+VALUES (
+  :token,
+  :version,
+  :publish_needed_at,
+  :visibility,
+  :date,
+  :slug,
+  :title,
+  :body
+);
+
+saveEntry:
+UPDATE Entry
+SET
+  version = :new_version,
+  publish_needed_at = :publish_needed_at,
+  visibility = :new_visibility,
+  date = :new_date,
+  slug = :new_slug,
+  title = :new_title,
+  body = :new_body
+WHERE
+  version = :expected_version AND
+  id = :id;
+
+clearSyncNeededAt:
+UPDATE Entry
+SET
+  version = :new_version,
+  publish_needed_at = :publish_needed_at
+WHERE
+  version = :expected_version AND
+  id = :id;
+
+setSyncNeededAt:
+UPDATE Entry
+SET
+  version = version + 1,
+  publish_needed_at = :publish_needed_at
+WHERE
+  token = :token;
+
+findEntries:
+SELECT *
+FROM Entry
+ORDER BY
+  date DESC
+LIMIT :limit;
+
+findEntriesToSync:
+SELECT *
+FROM Entry
+WHERE
+  publish_needed_at IS NOT NULL
+ORDER BY date DESC
+LIMIT :limit;
+
+findEntriesWithVisibility:
+SELECT *
+FROM Entry
+WHERE
+  visibility = :visibility
+ORDER BY date DESC
+LIMIT :limit;
+
+findEntryByToken:
+SELECT *
+FROM Entry
+WHERE token = :token;

@@ -1,0 +1,83 @@
+package com.wasmo.domtester.gradle
+
+import org.gradle.api.Plugin
+import org.gradle.api.Project
+import org.gradle.api.file.Directory
+import org.gradle.api.file.DuplicatesStrategy
+import org.gradle.api.provider.Provider
+import org.gradle.api.tasks.Copy
+import org.gradle.api.tasks.Delete
+import org.gradle.api.tasks.TaskProvider
+import org.jetbrains.kotlin.gradle.dsl.kotlinExtension
+
+class DomTesterPlugin : Plugin<Project> {
+  override fun apply(project: Project) {
+    project.extensions.add(
+      DomTesterExtension::class.java,
+      "domTester",
+      RealDomTesterExtension(project),
+    )
+  }
+}
+
+internal class RealDomTesterExtension(
+  private val project: Project,
+) : DomTesterExtension {
+  override fun domTester() {
+    val cleanDomTesterSnapshotsTask = project.tasks.register("cleanDomTester", Delete::class.java) {
+      delete(project.layout.projectDirectory.dir("dom-tester-snapshots"))
+    }
+
+    val domTesterResourcesDirectory = project.layout.buildDirectory.dir("dom-tester-resources")
+    val copyDomTesterResourcesTask = registerCopyDomTesterResourcesTask(domTesterResourcesDirectory)
+
+    val writeSnapshotTestingJsTask = project.tasks.register(
+      "writeSnapshotTestingJs",
+      WriteSnapshotTestingJsTask::class.java,
+    ) {
+      karmaConfigD.set(project.layout.projectDirectory.dir("karma.config.d"))
+      fullyQualifiedProjectDirectory.set(project.projectDir.path)
+      fullyQualifiedResourcesDirectory.set(domTesterResourcesDirectory.get().asFile.path)
+    }
+
+    project.tasks.named { it == "jsBrowserTest" }.configureEach {
+      dependsOn(writeSnapshotTestingJsTask)
+      dependsOn(copyDomTesterResourcesTask)
+      mustRunAfter(cleanDomTesterSnapshotsTask)
+      outputs.dirs(
+        project.layout.projectDirectory.dir("dom-tester-snapshots"),
+        project.layout.buildDirectory.dir("dom-tester-snapshots"),
+      )
+    }
+  }
+
+  private fun registerCopyDomTesterResourcesTask(
+    domTesterResourcesDirectory: Provider<Directory>,
+  ): TaskProvider<Copy> {
+    return project.tasks.register(
+      "copyDomTesterResources",
+      Copy::class.java,
+    ) {
+      project.tasks.findByName("jvmMainClasses")?.let { jvmMainClasses ->
+        this@register.dependsOn(jvmMainClasses)
+      }
+      duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+
+      project.kotlinExtension.sourceSets.matching { it.name == "jvmMain" }.all {
+        from(resources) {
+          include("static/assets/**/*")
+        }
+      }
+
+      project.configurations.matching { it.name == "jvmMainRuntimeClasspath" }.all {
+        for (jarFile in files) {
+          from(project.zipTree(jarFile)) {
+            include("static/assets/**/*")
+          }
+        }
+      }
+
+      into(domTesterResourcesDirectory)
+    }
+  }
+}

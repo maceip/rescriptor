@@ -1,0 +1,121 @@
+package com.wasmo.db.computers
+
+import com.wasmo.db.bindSubscriptionPeriodId
+import com.wasmo.db.bindComputerId
+import com.wasmo.db.bindStripeCustomerId
+import com.wasmo.db.getSubscriptionPeriodId
+import com.wasmo.db.getComputerId
+import com.wasmo.db.getStripeCustomerId
+import com.wasmo.identifiers.SubscriptionPeriodId
+import com.wasmo.identifiers.ComputerId
+import com.wasmo.identifiers.StripeCustomerId
+import kotlin.time.Instant
+import wasmo.sql.SqlConnection
+import wasmox.sql.singleOrNull
+
+context(connection: SqlConnection)
+suspend fun findSubscriptionPeriodByStripeSubscriptionId(
+  stripe_subscription_id: String,
+  limit: Long,
+): DbSubscriptionPeriod? {
+  val rowIterator = connection.executeQuery(
+    """
+    SELECT
+      id,
+      created_at,
+      version,
+      stripe_customer_id,
+      stripe_subscription_id,
+      computer_id,
+      active_start,
+      active_end
+    FROM SubscriptionPeriod
+    WHERE stripe_subscription_id = $1
+    ORDER BY active_start DESC
+    LIMIT $2
+    """,
+  ) {
+    bindString(0, stripe_subscription_id)
+    bindS64(1, limit)
+  }
+
+  return rowIterator.singleOrNull {
+    DbSubscriptionPeriod(
+      getSubscriptionPeriodId(0),
+      getInstant(1)!!,
+      getS32(2)!!,
+      getStripeCustomerId(3),
+      getString(4)!!,
+      getComputerId(5),
+      getInstant(6)!!,
+      getInstant(7)!!,
+    )
+  }
+}
+
+context(connection: SqlConnection)
+suspend fun insertSubscriptionPeriod(
+  created_at: Instant,
+  version: Int,
+  stripe_customer_id: StripeCustomerId,
+  stripe_subscription_id: String,
+  computer_id: ComputerId,
+  active_start: Instant,
+  active_end: Instant,
+): Long {
+  return connection.execute(
+    """
+    INSERT INTO SubscriptionPeriod(
+      created_at,
+      version,
+      stripe_customer_id,
+      stripe_subscription_id,
+      computer_id,
+      active_start,
+      active_end
+    )
+    VALUES (
+      $1,
+      $2,
+      $3,
+      $4,
+      $5,
+      $6,
+      $7
+    )
+    """,
+  ) {
+    bindInstant(0, created_at)
+    bindS32(1, version)
+    bindStripeCustomerId(2, stripe_customer_id)
+    bindString(3, stripe_subscription_id)
+    bindComputerId(4, computer_id)
+    bindInstant(5, active_start)
+    bindInstant(6, active_end)
+  }
+}
+
+context(connection: SqlConnection)
+suspend fun truncateSubscriptionPeriod(
+  new_version: Int,
+  active_end: Instant,
+  expected_version: Int,
+  id: SubscriptionPeriodId,
+): Long {
+  return connection.execute(
+    """
+    UPDATE SubscriptionPeriod
+    SET
+      version = $1,
+      active_end = $2
+    WHERE
+      version = $3 AND
+      id = $4
+    """,
+  ) {
+    bindS32(0, new_version)
+    bindInstant(1, active_end)
+    bindS32(2, expected_version)
+    bindSubscriptionPeriodId(3, id)
+  }
+}

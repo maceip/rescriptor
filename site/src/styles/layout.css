@@ -1,0 +1,482 @@
+/*
+ * Layout and navigation.
+ *
+ * Three form factors, one component tree:
+ *   < 600px          phones and fold cover screens -> docked bottom bar, thumb reachable
+ *   600px - 1079px   unfolded foldables and tablets -> 60px icon rail on the left edge
+ *   >= 1080px        desktop -> 236px labelled rail that drifts with scroll and tracks the pointer
+ *
+ * Hinged devices are handled at the bottom of the file so nothing interactive lands on the fold.
+ */
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  font-size: var(--step-0);
+  line-height: 1.6;
+  color: var(--foreground);
+  background-color: var(--background);
+  background-image:
+    radial-gradient(120% 80% at 12% -10%, rgb(255 255 255 / 16%), transparent 58%),
+    radial-gradient(90% 60% at 92% 8%, var(--accent-soft), transparent 60%),
+    linear-gradient(172deg, var(--metal-2) 0%, var(--metal-3) 55%, var(--metal-deep-2) 100%);
+  background-attachment: fixed;
+  min-height: 100dvh;
+  overflow-wrap: break-word;
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--foreground);
+}
+
+.shell {
+  display: grid;
+  grid-template-columns: 1fr;
+  min-height: 100dvh;
+}
+
+.content {
+  min-width: 0;
+  width: 100%;
+  max-width: calc(var(--measure) + 2 * var(--gutter));
+  margin-inline: auto;
+  padding: var(--gutter);
+  padding-bottom: calc(var(--bar-mobile) + env(safe-area-inset-bottom, 0px) + 40px);
+  display: flex;
+  flex-direction: column;
+  gap: clamp(20px, 3.5vw, 34px);
+}
+
+.skip {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 90;
+  transform: translateY(-200%);
+  transition: transform 0.16s var(--ease);
+}
+
+.skip:focus-visible {
+  transform: translateY(0);
+}
+
+/* ---------------------------------------------------------------------- nav */
+
+.nav {
+  z-index: 50;
+}
+
+.nav__brand,
+.nav__foot,
+.nav__progress {
+  display: none;
+}
+
+.nav__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  gap: 4px;
+}
+
+.nav__item {
+  flex: 0 0 auto;
+}
+
+.nav__link {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.65em;
+  padding: 0.5em 0.7em;
+  border-radius: var(--radius-sm);
+  color: var(--muted-foreground);
+  text-decoration: none;
+  font-size: var(--step--1);
+  font-weight: 500;
+  white-space: nowrap;
+  transition:
+    color 0.16s var(--ease),
+    scale 0.18s var(--ease-snap);
+}
+
+.nav__link:hover {
+  color: var(--foreground);
+}
+
+.nav__link:active {
+  scale: var(--press-scale);
+}
+
+.nav__link[aria-current='true'] {
+  color: var(--foreground);
+}
+
+.nav__icon {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+}
+
+.nav__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nav__index {
+  margin-left: auto;
+  font-size: 0.75em;
+  color: var(--subtle-foreground);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The travelling glass marker behind the active item. */
+.nav__marker {
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  top: 0;
+  height: var(--marker-h, 0px);
+  transform: translateY(var(--marker-y, 0px));
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--glass-border);
+  background: rgb(var(--glass-tint) / calc(var(--glass-tint-alpha) * 0.75));
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / calc(var(--glass-highlight-alpha) * 0.8)),
+    inset 0 0 8px rgb(0 0 0 / calc(var(--glass-inner-shadow-alpha) * 0.8));
+  opacity: 0;
+  pointer-events: none;
+  z-index: -1;
+  transition:
+    transform 0.34s var(--ease-snap),
+    height 0.34s var(--ease-snap),
+    width 0.34s var(--ease-snap),
+    opacity 0.2s var(--ease);
+}
+
+.nav__marker[data-ready='true'] {
+  opacity: 1;
+}
+
+/* ---------------------------------------------------------- mobile: < 600px */
+
+@media (max-width: 599px) {
+  .nav {
+    position: fixed;
+    inset: auto 0 0 0;
+    padding: 6px 6px calc(6px + env(safe-area-inset-bottom, 0px));
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    border-bottom: 0;
+  }
+
+  .nav__scroll {
+    position: relative;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    scroll-snap-type: x proximity;
+  }
+
+  .nav__scroll::-webkit-scrollbar {
+    display: none;
+  }
+
+  .nav__link {
+    flex-direction: column;
+    gap: 2px;
+    min-width: 64px;
+    min-height: 48px;
+    padding: 0.35em 0.5em;
+    scroll-snap-align: center;
+    font-size: 0.68rem;
+  }
+
+  .nav__index {
+    display: none;
+  }
+
+  .nav__marker {
+    top: 4px;
+    bottom: 4px;
+    left: 0;
+    right: auto;
+    height: auto;
+    width: var(--marker-w, 0px);
+    transform: translateX(var(--marker-x, 0px));
+  }
+}
+
+/* -------------------------------------------- foldable / tablet: 600-1079px */
+
+@media (min-width: 600px) {
+  .shell {
+    grid-template-columns: var(--rail-fold) 1fr;
+  }
+
+  .content {
+    padding-bottom: calc(var(--gutter) + 40px);
+  }
+
+  .nav {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    padding: 12px 6px;
+    border-radius: 0;
+    border-block: 0;
+    border-left: 0;
+  }
+
+  .nav__scroll {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-width: none;
+  }
+
+  .nav__scroll::-webkit-scrollbar {
+    display: none;
+  }
+
+  .nav__list {
+    flex-direction: column;
+  }
+
+  .nav__link {
+    justify-content: center;
+    min-height: 44px;
+    padding: 0.5em;
+  }
+
+  .nav__label,
+  .nav__index {
+    display: none;
+  }
+
+  .nav__brand {
+    display: grid;
+    place-items: center;
+    height: 34px;
+    margin-bottom: 10px;
+    font-weight: 600;
+    font-size: 0.95rem;
+    letter-spacing: 0.06em;
+  }
+
+  /* Tooltip for the icon-only rail. */
+  .nav__link::after {
+    content: attr(data-label);
+    position: absolute;
+    left: calc(100% + 10px);
+    top: 50%;
+    padding: 0.3em 0.6em;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--foreground);
+    box-shadow: var(--shadow-2);
+    font-size: var(--step--1);
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    translate: -6px -50%;
+    transition:
+      opacity 0.14s var(--ease),
+      translate 0.14s var(--ease);
+    z-index: 3;
+  }
+
+  .nav__link:hover::after,
+  .nav__link:focus-visible::after {
+    opacity: 1;
+    translate: 0 -50%;
+  }
+}
+
+/* ------------------------------------------------------ desktop: >= 1080px */
+
+@media (min-width: 1080px) {
+  .shell {
+    grid-template-columns: var(--rail-desktop) 1fr;
+    gap: clamp(16px, 2vw, 32px);
+    padding: clamp(16px, 2vw, 28px);
+  }
+
+  .content {
+    max-width: var(--measure);
+    margin-inline: 0;
+    padding: 0 clamp(8px, 1.5vw, 24px) 64px;
+  }
+
+  .nav {
+    /* --rail-drift is written from JS; the rail eases toward the scroll position. */
+    top: clamp(16px, 2vw, 28px);
+    height: auto;
+    max-height: calc(100dvh - 2 * clamp(16px, 2vw, 28px));
+    padding: 14px 8px 10px;
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    translate: 0 var(--rail-drift, 0px);
+    transition:
+      box-shadow 0.3s var(--ease),
+      border-color 0.3s var(--ease);
+    will-change: translate;
+  }
+
+  .nav:hover {
+    border-color: color-mix(in srgb, var(--ring) 34%, var(--glass-border));
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / var(--glass-highlight-alpha)),
+      inset 0 0 var(--glass-inner-shadow) rgb(0 0 0 / var(--glass-inner-shadow-alpha)),
+      var(--shadow-3);
+  }
+
+  .nav__brand {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0.6em;
+    height: auto;
+    padding: 0 8px 12px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+    box-shadow: 0 1px 0 rgb(255 255 255 / calc(var(--glass-highlight-alpha) * 0.5));
+    font-size: 1rem;
+    letter-spacing: 0.08em;
+  }
+
+  .nav__link {
+    justify-content: flex-start;
+    min-height: 40px;
+    padding: 0.5em 0.7em;
+  }
+
+  .nav__label,
+  .nav__index {
+    display: block;
+  }
+
+  .nav__link::after {
+    display: none;
+  }
+
+  /* Pointer-tracking sheen. --mx/--my are written on pointermove. */
+  .nav__link::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: var(--radius-sm);
+    opacity: 0;
+    pointer-events: none;
+    background: radial-gradient(
+      140px 64px at var(--mx, 50%) var(--my, 50%),
+      rgb(255 255 255 / calc(var(--glass-highlight-alpha) * 0.5)),
+      transparent 70%
+    );
+    transition: opacity 0.2s var(--ease);
+  }
+
+  .nav__link:hover::before {
+    opacity: 1;
+  }
+
+  .nav__foot {
+    display: block;
+    padding: 10px 8px 0;
+    margin-top: 8px;
+    border-top: 1px solid var(--border);
+    font-size: var(--step--1);
+    color: var(--subtle-foreground);
+    line-height: 1.45;
+  }
+
+  .nav__progress {
+    display: block;
+    margin: 10px 8px 0;
+  }
+}
+
+@media (min-width: 1400px) {
+  .shell {
+    max-width: 1480px;
+    margin-inline: auto;
+  }
+}
+
+/* ----------------------------------------------- dual-screen / hinged */
+
+/* Side by side: the rail owns the left segment, the fold gap stays empty. */
+@media (horizontal-viewport-segments: 2) {
+  .shell {
+    grid-template-columns: env(viewport-segment-width 0 0, var(--rail-desktop)) 1fr;
+    column-gap: calc(env(viewport-segment-left 1 0, 0px) - env(viewport-segment-right 0 0, 0px));
+  }
+
+  .nav {
+    position: sticky;
+    top: 0;
+    height: 100dvh;
+    max-height: 100dvh;
+    border-radius: 0;
+    translate: none;
+  }
+
+  .nav__label,
+  .nav__index {
+    display: block;
+  }
+
+  .nav__link {
+    justify-content: flex-start;
+  }
+
+  .nav__link::after {
+    display: none;
+  }
+}
+
+/* Book posture: content in the top segment, the bar docked in the bottom one. */
+@media (vertical-viewport-segments: 2) {
+  .shell {
+    grid-template-columns: 1fr;
+  }
+
+  .nav {
+    position: fixed;
+    inset: auto 0 0 0;
+    height: auto;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    translate: none;
+  }
+
+  .nav__list {
+    flex-direction: row;
+    justify-content: center;
+  }
+
+  .nav__label {
+    display: block;
+  }
+
+  .content {
+    padding-bottom: calc(env(viewport-segment-height 0 1, 120px) + 24px);
+  }
+}

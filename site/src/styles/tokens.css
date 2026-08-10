@@ -1,0 +1,218 @@
+/*
+ * Design tokens.
+ *
+ * Two layers, deliberately:
+ *
+ *   1. The chassis is brushed aluminum. It is the material the page is milled from, and it is what
+ *      the glass above it refracts.
+ *   2. The components are glass, following RikkaUI's GlassSurface layer stack: the backdrop is
+ *      graded and blurred, a tint washes over it, an inner shadow gives the slab thickness, and a
+ *      specular rim plus drop shadow seat it in space.
+ *
+ * Semantic names follow the shadcn/RikkaUI vocabulary (background/foreground, card, muted, border,
+ * ring) so component rules read the same way they do there. Radii are deliberately tight
+ * throughout, closest to RikkaUI's Nebula preset.
+ */
+
+:root {
+  color-scheme: light dark;
+
+  /* Tight radii. Nothing on the page is rounder than 6px. */
+  --radius: 4px;
+  --radius-sm: 3px;
+  --radius-lg: 6px;
+
+  --rail-desktop: 236px;
+  --rail-fold: 60px;
+  --bar-mobile: 62px;
+  --gutter: clamp(16px, 4vw, 40px);
+  --measure: 80ch;
+
+  --step--1: clamp(0.72rem, 0.69rem + 0.14vw, 0.79rem);
+  --step-0: clamp(0.83rem, 0.8rem + 0.16vw, 0.92rem);
+  --step-1: clamp(0.95rem, 0.9rem + 0.25vw, 1.1rem);
+  --step-2: clamp(1.18rem, 1.05rem + 0.6vw, 1.55rem);
+  --step-3: clamp(1.6rem, 1.25rem + 1.6vw, 2.6rem);
+  --step-4: clamp(2.1rem, 1.4rem + 3.2vw, 4.2rem);
+
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-metal: cubic-bezier(0.32, 0.72, 0, 1);
+  /* RikkaUI's springSnap, approximated as a curve. */
+  --ease-snap: linear(0, 0.28 8%, 0.72 20%, 0.96 32%, 1.02 44%, 1 60%, 1);
+  --press-scale: 0.985;
+
+  /* ------------------------------------------------------------ chassis */
+  --metal-1: #eceef0;
+  --metal-2: #d8dbdf;
+  --metal-3: #bfc4ca;
+  --metal-deep-1: #cfd3d8;
+  --metal-deep-2: #b4b9c0;
+  --plate-1: #f4f5f6;
+  --plate-2: #e2e5e8;
+
+  --bevel-top: rgb(255 255 255 / 82%);
+  --bevel-bottom: rgb(28 34 41 / 24%);
+  --bevel-side: rgb(255 255 255 / 30%);
+
+  --engrave-light: rgb(255 255 255 / 70%);
+  --engrave-dark: rgb(10 14 18 / 24%);
+  --sheen: rgb(255 255 255 / 34%);
+  --grain-blend: overlay;
+  --grain-opacity: 1;
+
+  /* ----------------------------------------------------------- semantic */
+  --background: #c3c8ce;
+  --foreground: #14181d;
+  --card: #e6e9ec;
+  --card-foreground: #14181d;
+  --muted: rgb(20 24 29 / 6%);
+  --muted-foreground: #5b636c;
+  --subtle-foreground: #767e87;
+  --primary: #17548d;
+  --primary-foreground: #f6f8fa;
+  --accent: #1d5f9e;
+  --accent-soft: rgb(29 95 158 / 14%);
+  --destructive: #9a2b21;
+  --success: #1d6b3f;
+  --warning: #85510a;
+  --border: rgb(28 36 45 / 22%);
+  --border-strong: rgb(28 36 45 / 34%);
+  --ring: #1d5f9e;
+
+  --well-1: #b9bec5;
+  --well-2: #cbd0d6;
+
+  --shadow-1: 0 1px 2px rgb(12 18 24 / 18%);
+  --shadow-2: 0 2px 4px rgb(12 18 24 / 14%), 0 10px 24px -12px rgb(12 18 24 / 40%);
+  --shadow-3: 0 3px 6px rgb(12 18 24 / 16%), 0 22px 44px -20px rgb(12 18 24 / 48%);
+
+  /* -------------------------------------------------------------- glass */
+  /* Regular level. Levels below override blur, tint, and shadow only. */
+  --glass-blur: 14px;
+  --glass-saturate: 1.7;
+  --glass-brightness: 1.05;
+  --glass-tint: 255 255 255;
+  --glass-tint-alpha: 0.34;
+  --glass-highlight-alpha: 0.72;
+  --glass-rim-alpha: 0.3;
+  --glass-inner-shadow: 14px;
+  --glass-inner-shadow-alpha: 0.1;
+  --glass-shadow: 0 2px 5px rgb(12 18 24 / 12%), 0 18px 40px -22px rgb(12 18 24 / 55%);
+  --glass-border: rgb(255 255 255 / 46%);
+  --glass-light-angle: 104deg;
+  --glass-dispersion: rgb(120 170 255 / 18%);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --metal-1: #34383d;
+    --metal-2: #292d32;
+    --metal-3: #1f2226;
+    --metal-deep-1: #26292e;
+    --metal-deep-2: #1a1d21;
+    --plate-1: #3a3f45;
+    --plate-2: #2b2f34;
+
+    --bevel-top: rgb(255 255 255 / 16%);
+    --bevel-bottom: rgb(0 0 0 / 52%);
+    --bevel-side: rgb(255 255 255 / 6%);
+
+    --engrave-light: rgb(255 255 255 / 13%);
+    --engrave-dark: rgb(0 0 0 / 62%);
+    --sheen: rgb(255 255 255 / 12%);
+    --grain-blend: soft-light;
+    --grain-opacity: 0.85;
+
+    --background: #1b1e22;
+    --foreground: #e9ecef;
+    --card: #2a2e33;
+    --card-foreground: #e9ecef;
+    --muted: rgb(255 255 255 / 7%);
+    --muted-foreground: #a4acb5;
+    --subtle-foreground: #838b94;
+    --primary: #6fb2ee;
+    --primary-foreground: #10161c;
+    --accent: #6fb2ee;
+    --accent-soft: rgb(111 178 238 / 16%);
+    --destructive: #e8776a;
+    --success: #63c38c;
+    --warning: #d9a441;
+    --border: rgb(255 255 255 / 13%);
+    --border-strong: rgb(255 255 255 / 22%);
+    --ring: #6fb2ee;
+
+    --well-1: #191c20;
+    --well-2: #212429;
+
+    --shadow-1: 0 1px 2px rgb(0 0 0 / 44%);
+    --shadow-2: 0 2px 4px rgb(0 0 0 / 40%), 0 12px 28px -14px rgb(0 0 0 / 72%);
+    --shadow-3: 0 3px 8px rgb(0 0 0 / 46%), 0 26px 52px -22px rgb(0 0 0 / 80%);
+
+    --glass-saturate: 1.5;
+    --glass-brightness: 1.12;
+    --glass-tint: 200 214 230;
+    --glass-tint-alpha: 0.1;
+    --glass-highlight-alpha: 0.24;
+    --glass-rim-alpha: 0.12;
+    --glass-inner-shadow-alpha: 0.34;
+    --glass-shadow: 0 2px 6px rgb(0 0 0 / 40%), 0 20px 44px -24px rgb(0 0 0 / 78%);
+    --glass-border: rgb(255 255 255 / 14%);
+    --glass-dispersion: rgb(120 170 255 / 12%);
+  }
+}
+
+:root[data-theme='dark'] {
+  --metal-1: #34383d;
+  --metal-2: #292d32;
+  --metal-3: #1f2226;
+  --metal-deep-1: #26292e;
+  --metal-deep-2: #1a1d21;
+  --plate-1: #3a3f45;
+  --plate-2: #2b2f34;
+
+  --bevel-top: rgb(255 255 255 / 16%);
+  --bevel-bottom: rgb(0 0 0 / 52%);
+  --bevel-side: rgb(255 255 255 / 6%);
+
+  --engrave-light: rgb(255 255 255 / 13%);
+  --engrave-dark: rgb(0 0 0 / 62%);
+  --sheen: rgb(255 255 255 / 12%);
+  --grain-blend: soft-light;
+  --grain-opacity: 0.85;
+
+  --background: #1b1e22;
+  --foreground: #e9ecef;
+  --card: #2a2e33;
+  --card-foreground: #e9ecef;
+  --muted: rgb(255 255 255 / 7%);
+  --muted-foreground: #a4acb5;
+  --subtle-foreground: #838b94;
+  --primary: #6fb2ee;
+  --primary-foreground: #10161c;
+  --accent: #6fb2ee;
+  --accent-soft: rgb(111 178 238 / 16%);
+  --destructive: #e8776a;
+  --success: #63c38c;
+  --warning: #d9a441;
+  --border: rgb(255 255 255 / 13%);
+  --border-strong: rgb(255 255 255 / 22%);
+  --ring: #6fb2ee;
+
+  --well-1: #191c20;
+  --well-2: #212429;
+
+  --shadow-1: 0 1px 2px rgb(0 0 0 / 44%);
+  --shadow-2: 0 2px 4px rgb(0 0 0 / 40%), 0 12px 28px -14px rgb(0 0 0 / 72%);
+  --shadow-3: 0 3px 8px rgb(0 0 0 / 46%), 0 26px 52px -22px rgb(0 0 0 / 80%);
+
+  --glass-saturate: 1.5;
+  --glass-brightness: 1.12;
+  --glass-tint: 200 214 230;
+  --glass-tint-alpha: 0.1;
+  --glass-highlight-alpha: 0.24;
+  --glass-rim-alpha: 0.12;
+  --glass-inner-shadow-alpha: 0.34;
+  --glass-shadow: 0 2px 6px rgb(0 0 0 / 40%), 0 20px 44px -24px rgb(0 0 0 / 78%);
+  --glass-border: rgb(255 255 255 / 14%);
+  --glass-dispersion: rgb(120 170 255 / 12%);
+}

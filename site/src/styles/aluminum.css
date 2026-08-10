@@ -1,0 +1,110 @@
+/*
+ * The chassis: brushed aluminum.
+ *
+ * This is the material the page is milled from and the surface the glass components refract. Every
+ * plate is the same three layers — a seamless brushed grain, a directional light falloff, and a
+ * one pixel bevel (light top edge, dark bottom edge) that makes it read as a machined part.
+ */
+
+.plate {
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background-color: var(--metal-2);
+  background-image:
+    url('./grain.svg'),
+    linear-gradient(177deg, var(--metal-1) 0%, var(--metal-2) 48%, var(--metal-3) 100%);
+  background-repeat: repeat, no-repeat;
+  background-size: 320px 320px, 100% 100%;
+  background-blend-mode: var(--grain-blend), normal;
+  box-shadow:
+    inset 0 1px 0 var(--bevel-top),
+    inset 0 -1px 0 var(--bevel-bottom),
+    inset 1px 0 0 var(--bevel-side),
+    inset -1px 0 0 var(--bevel-side),
+    var(--shadow-2);
+}
+
+/* Raking specular highlight across the plate. */
+.plate::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: var(--grain-opacity);
+  background: linear-gradient(
+    102deg,
+    transparent 8%,
+    var(--sheen) 27%,
+    transparent 44%,
+    transparent 68%,
+    color-mix(in srgb, var(--sheen) 45%, transparent) 79%,
+    transparent 94%
+  );
+}
+
+.plate > * {
+  position: relative;
+  z-index: 1;
+}
+
+.plate--bright {
+  --metal-1: var(--plate-1);
+  --metal-2: var(--plate-2);
+  box-shadow:
+    inset 0 1px 0 var(--bevel-top),
+    inset 0 -1px 0 var(--bevel-bottom),
+    inset 1px 0 0 var(--bevel-side),
+    inset -1px 0 0 var(--bevel-side),
+    var(--shadow-3);
+}
+
+.plate--deep {
+  --metal-1: var(--metal-deep-1);
+  --metal-2: var(--metal-deep-2);
+  --metal-3: var(--metal-deep-2);
+}
+
+/* A pocket milled into the plate: everything inside sits below the surface. */
+.well {
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background-color: var(--well-1);
+  background-image:
+    url('./grain.svg'),
+    linear-gradient(180deg, var(--well-1) 0%, var(--well-2) 100%);
+  background-repeat: repeat, no-repeat;
+  background-size: 320px 320px, 100% 100%;
+  background-blend-mode: soft-light, normal;
+  box-shadow:
+    inset 0 2px 5px rgb(0 0 0 / 26%),
+    inset 0 1px 1px rgb(0 0 0 / 22%),
+    0 1px 0 var(--bevel-top);
+}
+
+/* Text stamped into metal: dark ink with a light burr on the lower lip of each stroke. */
+.engraved {
+  color: var(--foreground);
+  text-shadow:
+    0 1px 0 var(--engrave-light),
+    0 -1px 0 var(--engrave-dark);
+}
+
+.engraved--strong {
+  color: color-mix(in srgb, var(--foreground) 88%, var(--metal-3));
+  text-shadow:
+    0 1px 0 var(--engrave-light),
+    0 -1px 1px var(--engrave-dark),
+    0 2px 3px rgb(0 0 0 / 12%);
+}
+
+/* A scored line: dark groove, light burr below it. */
+.etch {
+  height: 2px;
+  border: 0;
+  margin: 0;
+  background: linear-gradient(180deg, var(--border-strong) 0 1px, var(--bevel-top) 1px 2px);
+}

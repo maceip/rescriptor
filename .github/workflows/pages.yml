@@ -1,0 +1,71 @@
+name: Pages
+
+# A commit on any branch rebuilds and redeploys the site. GitHub Pages hosts exactly one live
+# deployment, so the most recent push to land here is what visitors see; `concurrency` cancels
+# superseded runs so the newest commit always wins the race.
+on:
+  push:
+    branches: ['**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: site
+
+jobs:
+  build:
+    name: Build and optimize
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        # vite build, then the React Compiler gate, then the asset optimizer and budget check.
+        # SITE_BASE is derived from the repository name because Pages serves a project site from
+        # /<repo>/. GITHUB_REPOSITORY is present on every event, unlike the repository payload.
+        run: |
+          export SITE_BASE="/${GITHUB_REPOSITORY#*/}/"
+          echo "Building with base $SITE_BASE"
+          npm run build
+        env:
+          NODE_ENV: production
+
+      - name: Summarize
+        if: always()
+        run: cat dist/build-report.md >> "$GITHUB_STEP_SUMMARY" || true
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site/dist
+
+  deploy:
+    name: Deploy
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

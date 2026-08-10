@@ -1,0 +1,391 @@
+/*
+ * Glass components, following RikkaUI's GlassSurface layer stack:
+ *
+ *   backdrop graded + blurred (+ refracted, when liquidGL is driving)
+ *   -> tint wash
+ *   -> inner shadow for slab thickness
+ *   -> specular rim
+ *   -> drop shadow to seat it in space
+ *
+ * Three capability tiers mirror RikkaUI's GlassCapability, resolved at runtime on <html
+ * data-glass>. `full` means liquidGL has a WebGL renderer attached; `limited` means CSS
+ * backdrop-filter only, with the tint and highlight boosted the way RikkaUI boosts them when blur
+ * is weak; `none` falls back to an opaque themed surface with a border.
+ */
+
+.glass {
+  position: relative;
+  border-radius: var(--radius);
+  border: 1px solid var(--glass-border);
+  background-color: rgb(var(--glass-tint) / var(--glass-tint-alpha));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate))
+    brightness(var(--glass-brightness));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate))
+    brightness(var(--glass-brightness));
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / var(--glass-highlight-alpha)),
+    inset 0 0 var(--glass-inner-shadow) rgb(0 0 0 / var(--glass-inner-shadow-alpha)),
+    var(--glass-shadow);
+  isolation: isolate;
+}
+
+/* Raking specular sheen. Follows --glass-light-angle so press states can shift the light. */
+.glass::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(
+    var(--glass-light-angle),
+    rgb(255 255 255 / calc(var(--glass-highlight-alpha) * 0.42)) 0%,
+    transparent 26%,
+    transparent 68%,
+    rgb(255 255 255 / calc(var(--glass-highlight-alpha) * 0.16)) 88%,
+    transparent 100%
+  );
+}
+
+/* Chromatic rim: the dispersion RikkaUI disables when glass nests. */
+.glass::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  padding: 1px;
+  background: linear-gradient(
+    var(--glass-light-angle),
+    rgb(255 255 255 / var(--glass-rim-alpha)),
+    transparent 40%,
+    var(--glass-dispersion) 72%,
+    transparent
+  );
+  mask:
+    linear-gradient(#000 0 0) content-box exclude,
+    linear-gradient(#000 0 0);
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+}
+
+.glass--subtle {
+  --glass-blur: 8px;
+  --glass-tint-alpha: 0.22;
+  --glass-inner-shadow: 10px;
+  --glass-shadow: var(--shadow-1);
+}
+
+.glass--prominent {
+  --glass-blur: 24px;
+  --glass-tint-alpha: 0.42;
+  --glass-inner-shadow: 20px;
+  --glass-shadow: 0 3px 8px rgb(12 18 24 / 14%), 0 28px 60px -26px rgb(12 18 24 / 62%);
+}
+
+:root[data-theme='dark'] .glass--prominent,
+:root:not([data-theme='light']) .glass--prominent {
+  --glass-tint-alpha: 0.16;
+}
+
+/* Nesting: half the blur, no dispersion, no drop shadow. */
+.glass .glass {
+  --glass-blur: calc(8px * 0.5);
+  --glass-shadow: none;
+}
+
+.glass .glass::after {
+  display: none;
+}
+
+/* ------------------------------------------------------------ capability tiers */
+
+/* liquidGL owns the backdrop for these nodes; dropping our blur avoids paying for it twice. */
+:root[data-glass='full'] .is-lens {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background-color: transparent;
+}
+
+:root[data-glass='limited'] .glass {
+  /* RikkaUI boosts tint to at most 0.6 and highlight to at most 1.0 when blur is weak. */
+  --glass-tint-alpha: min(0.6, 0.34 * 1.3);
+  --glass-highlight-alpha: min(1, 0.72 * 1.15);
+}
+
+:root[data-glass='none'] .glass {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background-color: var(--card);
+  border-color: var(--border);
+}
+
+:root[data-glass='none'] .glass::before,
+:root[data-glass='none'] .glass::after {
+  display: none;
+}
+
+@supports not (backdrop-filter: blur(1px)) {
+  .glass {
+    background-color: var(--card);
+  }
+}
+
+/* -------------------------------------------------------------------- card */
+
+.card {
+  padding: clamp(14px, 2.2vw, 20px);
+  color: var(--card-foreground);
+}
+
+.card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.card__title {
+  margin: 0;
+  font-size: var(--step-0);
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
+
+.card__description {
+  margin: 0;
+  font-size: var(--step--1);
+  line-height: 1.55;
+  color: var(--muted-foreground);
+}
+
+.card__footer {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  font-size: var(--step--1);
+  color: var(--subtle-foreground);
+}
+
+.card--interactive {
+  cursor: pointer;
+  transition:
+    transform 0.22s var(--ease-snap),
+    box-shadow 0.22s var(--ease),
+    border-color 0.22s var(--ease);
+}
+
+.card--interactive:hover {
+  border-color: color-mix(in srgb, var(--ring) 40%, var(--glass-border));
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / var(--glass-highlight-alpha)),
+    inset 0 0 var(--glass-inner-shadow) rgb(0 0 0 / var(--glass-inner-shadow-alpha)),
+    var(--shadow-2);
+}
+
+.card--interactive:active {
+  scale: var(--press-scale);
+}
+
+.card[aria-selected='true'] {
+  border-color: color-mix(in srgb, var(--ring) 58%, transparent);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / var(--glass-highlight-alpha)),
+    inset 0 0 0 1px var(--accent-soft),
+    var(--shadow-2);
+}
+
+/* ------------------------------------------------------------------ button */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5em;
+  min-height: 36px;
+  padding: 0.45em 0.9em;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  font: inherit;
+  font-size: var(--step--1);
+  font-weight: 500;
+  letter-spacing: 0.005em;
+  color: var(--foreground);
+  background: var(--muted);
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    scale 0.18s var(--ease-snap),
+    background-color 0.16s var(--ease),
+    border-color 0.16s var(--ease),
+    box-shadow 0.16s var(--ease);
+}
+
+.btn:active:not(:disabled) {
+  scale: var(--press-scale);
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn--default {
+  color: var(--primary-foreground);
+  background: var(--primary);
+  border-color: color-mix(in srgb, var(--primary) 70%, black);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 26%),
+    var(--shadow-1);
+}
+
+.btn--default:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--primary) 88%, white);
+}
+
+.btn--secondary {
+  background: rgb(var(--glass-tint) / calc(var(--glass-tint-alpha) * 0.8));
+  border-color: var(--glass-border);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / calc(var(--glass-highlight-alpha) * 0.6));
+}
+
+.btn--secondary:hover:not(:disabled) {
+  border-color: var(--border-strong);
+}
+
+.btn--outline {
+  background: transparent;
+  border-color: var(--border-strong);
+}
+
+.btn--outline:hover:not(:disabled) {
+  background: var(--muted);
+}
+
+.btn--ghost {
+  background: transparent;
+  border-color: transparent;
+}
+
+.btn--ghost:hover:not(:disabled) {
+  background: var(--muted);
+}
+
+.btn--sm {
+  min-height: 30px;
+  padding: 0.3em 0.65em;
+}
+
+/* ------------------------------------------------------------------- badge */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  padding: 0.18em 0.55em;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--muted);
+  font-size: var(--step--1);
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+
+.badge--outline {
+  background: transparent;
+}
+
+.badge--accent {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 38%, transparent);
+  background: var(--accent-soft);
+}
+
+.badge--success {
+  color: var(--success);
+  border-color: color-mix(in srgb, var(--success) 38%, transparent);
+  background: color-mix(in srgb, var(--success) 12%, transparent);
+}
+
+.badge--warning {
+  color: var(--warning);
+  border-color: color-mix(in srgb, var(--warning) 38%, transparent);
+  background: color-mix(in srgb, var(--warning) 12%, transparent);
+}
+
+.badge--destructive {
+  color: var(--destructive);
+  border-color: color-mix(in srgb, var(--destructive) 42%, transparent);
+  background: color-mix(in srgb, var(--destructive) 12%, transparent);
+}
+
+.badge__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 1px;
+  background: currentcolor;
+  box-shadow: 0 0 6px currentcolor;
+}
+
+/* --------------------------------------------------------------- separator */
+
+.separator {
+  height: 1px;
+  border: 0;
+  margin: 0;
+  background: var(--border);
+}
+
+/* --------------------------------------------------------------------- kbd */
+
+.kbd {
+  display: inline-block;
+  padding: 0.1em 0.4em;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  background: var(--muted);
+  font-size: 0.85em;
+  font-weight: 500;
+  color: var(--muted-foreground);
+}
+
+/* ---------------------------------------------------------------- progress */
+
+.progress {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--muted);
+  overflow: hidden;
+}
+
+.progress > i {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transform-origin: left center;
+  transition: transform 0.16s linear;
+}
+
+:where(a, button, [tabindex]):focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -2,6 +2,7 @@ package com.wasmo.installedapps
 
 import com.wasmo.identifiers.OsScope
 import com.wasmo.jobs.OsJobHandler
+import com.wasmo.packaging.capabilityPolicy
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import kotlin.time.Clock

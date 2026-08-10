@@ -44,9 +44,14 @@ kotlin {
         implementation(libs.commons.dbcp2)
         implementation(libs.kotlinx.coroutines.reactive)
         implementation(libs.kotlinx.coroutines.test)
+        implementation(libs.tomlkt)
+        implementation(projects.identifiers)
+        implementation(projects.platform.mediation)
+        implementation(projects.platform.packaging)
         implementation(projects.platform.testing)
         implementation(projects.os.server.sql.api)
         implementation(projects.os.server.sql.real)
+        implementation(projects.support.issues)
       }
     }
   }

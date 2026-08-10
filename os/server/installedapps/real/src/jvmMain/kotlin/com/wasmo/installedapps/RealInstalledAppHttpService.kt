@@ -8,6 +8,7 @@ import com.wasmo.framework.ResponseBody
 import com.wasmo.identifiers.ForInstalledApp
 import com.wasmo.identifiers.InstalledAppScope
 import com.wasmo.packaging.AppManifest
+import com.wasmo.packaging.capabilityPolicy
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import kotlin.time.Clock

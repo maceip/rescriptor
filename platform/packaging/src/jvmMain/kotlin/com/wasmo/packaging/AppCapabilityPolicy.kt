@@ -1,6 +1,5 @@
-package com.wasmo.installedapps
+package com.wasmo.packaging
 
-import com.wasmo.packaging.AppManifest
 import wasmo.mediation.CapabilityGrant
 import wasmo.mediation.CapabilityPolicy
 import wasmo.mediation.GrantedCapabilityPolicy

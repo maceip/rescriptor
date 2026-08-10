@@ -21,6 +21,7 @@ kotlin {
     }
     val jvmMain by getting {
       dependencies {
+        api(projects.platform.mediation)
         implementation(libs.okhttp)
         implementation(libs.tomlkt)
       }

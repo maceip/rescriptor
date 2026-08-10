@@ -15,9 +15,9 @@ npm run preview
 Deployment
 ----------
 
-`.github/workflows/pages.yml` builds and deploys on a push to **any** branch. GitHub Pages hosts one
-live deployment, so the most recent push wins; `concurrency: github-pages` with
-`cancel-in-progress` cancels superseded runs so the newest commit is the one that lands.
+`.github/workflows/pages.yml` builds, optimizes, and deploys on every push to **main**. GitHub Pages
+hosts one live deployment; `concurrency: github-pages` with `cancel-in-progress` cancels a
+superseded run so the newest commit to `main` is the one that lands.
 
 `SITE_BASE` is derived from the repository name in CI, because a project site is served from
 `/<repo>/`. Building for a different origin is a matter of setting it:

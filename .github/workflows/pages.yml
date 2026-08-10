@@ -1,11 +1,10 @@
-name: Pages
+name: Deploy Pages
 
-# A commit on any branch rebuilds and redeploys the site. GitHub Pages hosts exactly one live
-# deployment, so the most recent push to land here is what visitors see; `concurrency` cancels
-# superseded runs so the newest commit always wins the race.
+# Every commit to main gets a fresh, optimized production build and becomes the live Pages site.
 on:
   push:
-    branches: ['**']
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
@@ -26,11 +25,11 @@ jobs:
     name: Build and optimize
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: '22'
+          node-version: '24'
           cache: npm
           cache-dependency-path: site/package-lock.json
 
@@ -52,9 +51,9 @@ jobs:
         if: always()
         run: cat dist/build-report.md >> "$GITHUB_STEP_SUMMARY" || true
 
-      - uses: actions/configure-pages@v5
+      - uses: actions/configure-pages@v6
 
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: site/dist
 
@@ -68,4 +67,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
